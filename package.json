@@ -1,0 +1,15 @@
+{
+  "name": "comssa-tidyhq-app",
+  "version": "1.0.0",
+  "description": "ComSSA app that uses TidyHQ package",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Sean McGinty <newfolderlocation@gmail.com>",
+  "license": "GPL-3.0",
+  "dependencies": {
+    "dotenv": "^16.0.3",
+    "express": "^4.18.2"
+  }
+}
