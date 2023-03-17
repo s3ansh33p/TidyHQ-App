@@ -66,7 +66,7 @@ app.get('/group', async (req, res) => {
     }
     try {
         let group = await client.Groups.getGroupByName(decodeURIComponent(req.query.name));
-        let contacts = await client.Groups.getGroupContacts(group.id);
+        let contacts = await client.Contacts.getContactsInGroup(group.id);
         let result = "<h2>" + group.label + " (ID: " + group.id + ")</h2><table><tr><th>#</th><th>Name</th><th>Email</th><th>More Info</th></tr>";
         for (let i = 0; i < contacts.length; i++) {
             let contact = contacts[i];
@@ -74,6 +74,7 @@ app.get('/group', async (req, res) => {
         }
         res.send(result + "</table>");
     } catch (error) {
+        console.log(error);
         res.send("Group not found");
     }
 })
@@ -84,7 +85,7 @@ app.get('/group2', async (req, res) => {
     }
     try {
         let group = await client.Groups.getGroupByName(decodeURIComponent(req.query.name));
-        let contacts = await client.Groups.getGroupContacts(group.id);
+        let contacts = await client.Contacts.getContactsInGroup(group.id);
         let result = "";
         for (let i = 0; i < contacts.length; i++) {
             let contact = contacts[i];
