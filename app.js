@@ -21,7 +21,7 @@ const port =            process.env.PORT || 4000;
 const ACCESS_TOKEN =    process.env.ACCESS_TOKEN; // temporary
 
 // tidyhq client
-let client = new TidyHQ(clientID, clientSecret, redirectURI, ACCESS_TOKEN);
+let client = new TidyHQ(ACCESS_TOKEN);
 
 // Routes
 app.get('/', (req, res) => {
