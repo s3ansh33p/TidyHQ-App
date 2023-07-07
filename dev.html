@@ -60,6 +60,11 @@
             padding: 0;
             background-color: #000;
         }
+
+        .back {
+            margin-left: 1rem;
+            color: orange;
+        }
     </style>
 </head>
 
@@ -94,16 +99,20 @@
 
         // request camera permission
         document.getElementById('requestPermission').addEventListener('click', (event) => {
-            setStatus('Requesting camera permission...');
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
-                // permission granted
-                setStatus('Camera permission granted', '', 'green');
-                // create scanner and start
-                createScanner();
-            }).catch(err => {
-                // permission denied
-                setStatus('Camera permission denied', err, 'red');
-            });
+            if (window.started) {
+                startScanner();
+            } else {
+                setStatus('Requesting camera permission...');
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
+                    // permission granted
+                    setStatus('Camera permission granted', '', 'limegreen');
+                    // create scanner and start
+                    createScanner();
+                }).catch(err => {
+                    // permission denied
+                    setStatus('Camera permission denied', err, 'red');
+                });
+            }
         });
 
         // stop
@@ -132,6 +141,7 @@
             } else {
                 setStatus('Starting scanner...');
             }
+            window.started = true;
             window.scanner.start(
                 window.cameraId,
                 {
@@ -147,6 +157,7 @@
                 .catch(err => {
                     // Start failed, handle it. For example, 
                     console.log(`Unable to start scanning, error: ${err}`);
+                    window.started = false;
                 });
         }
 
@@ -158,7 +169,7 @@
                     // success
                     res.json().then(data => {
                         if (data.success) {
-                            setStatus('Success', data.message, 'green');
+                            setStatus(`${data.message.name}${data.message.studentID != 'N/A' ? ` - ${data.message.studentID}` : ''}`, `Ticket #${data.message.num}/${data.message.max} - ${data.message.type}`, 'limegreen');
                         } else {
                             setStatus('Failed', data.message, 'red');
                         }
@@ -184,7 +195,7 @@
             }
             // stop scanner
             stopScanner(true);
-            setStatus('Checking ticket...', qrCodeMessage, 'green');
+            setStatus('Checking ticket...', qrCodeMessage, 'limegreen');
             checkTicket(qrCodeMessage);
         }
         function QRErrorCallback(errorMessage) {
@@ -212,6 +223,13 @@
                         if (data.success) {
                             document.title = `${data.message.name}`;
                             document.getElementById('title').innerText = data.message.name;
+                            // add child element with title to go back to event selection
+                            const backToEventSelection = document.createElement('a');
+                            backToEventSelection.classList.add('back');
+                            backToEventSelection.innerText = '(change)';
+                            backToEventSelection.href = '/';
+                            document.getElementById('title').appendChild(backToEventSelection);
+                            setStatus('Fetched event information');
                         } else {
                             setStatus('Failed', data.message, 'red');
                         }

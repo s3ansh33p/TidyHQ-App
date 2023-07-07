@@ -10,6 +10,7 @@ const { JsonDB, Config } = require('node-json-db');
 const db = new JsonDB(new Config("comssa-data", true, false, '/'));
 // starting tickets db
 db.push("/last_fetch/tickets", {});
+db.push("/last_fetch/ticket-info", {});
 
 // Import will change eventually
 const TidyHQ = require('../module/index.js');
@@ -60,6 +61,14 @@ async function updateCacheTickets(event_id) {
     return tickets;
 }
 
+async function updateCacheTicketInfo(event_id) {
+    console.log("Updating cache for ticket info")
+    const ticket_info = await client.Tickets.getTickets(event_id);
+    await db.push("/ticket-info/" + event_id, ticket_info);
+    await db.push("/last_fetch/ticket-info/" + event_id, Date.now());
+    return ticket_info;
+}
+
 // get from local cache
 async function getCacheEvents() {
     console.log("Getting cache for events");
@@ -97,6 +106,20 @@ async function getCacheTickets(event_id) {
         return await updateCacheTickets(event_id);
     }
     return await db.getData("/tickets/" + event_id);
+}
+
+async function getCacheTicketInfo(event_id) {
+    console.log("Getting cache for ticket info");
+    let last_fetch = 0;
+    try {
+        last_fetch = await db.getData("/last_fetch/ticket-info/" + event_id);
+    } catch (error) {
+        await db.push("/last_fetch/ticket-info/" + event_id, 0);
+    }
+    if (Date.now() - last_fetch > CACHE_TIMEOUT) {
+        return await updateCacheTicketInfo(event_id);
+    }
+    return await db.getData("/ticket-info/" + event_id);
 }
 
 // auth guard middleware
@@ -203,7 +226,8 @@ app.get('/check', authGuard, async (req, res) => {
  
         // check if code is in tickets
         let found = false;
-        for (let i = 0; i < tickets.length; i++) {
+        let i;
+        for (i = 0; i < tickets.length; i++) {
             let ticket = tickets[i];
             if (ticket.code == code) {
                 found = ticket;
@@ -216,17 +240,39 @@ app.get('/check', authGuard, async (req, res) => {
                 "success": false,
                 "message": "Code not found"
             });
+        } else {
+            // get contact
+            const contact = await client.Contacts.getContact(found.contact_id);
+            let studentID = contact.custom_fields.find(field => field.title == "Curtin Student ID Number");
+            if (studentID) {
+                studentID = studentID.value;
+            } else {
+                studentID = "N/A";
+            }
+
+            // get ticket info
+            const ticket_info = await getCacheTicketInfo(event_id);
+            const ticket_type = ticket_info.find(type => type.id == found.ticket_id);
+            const ticket_name = ticket_type.name;
+            // for each ticket type sum quantity_sold
+            let ticket_quantity = 0;
+            for (let j = 0; j < ticket_info.length; j++) {
+                ticket_quantity += ticket_info[j].quantity_sold;
+            }
+            // send 200 response with json
+            res.status(200).json({
+                "success": true,
+                "message": {
+                    "name": contact.first_name + ' ' + contact.last_name,
+                    "phone": contact.phone_number,
+                    "email": contact.email_address,
+                    "studentID": studentID,
+                    "num": i+1,
+                    "max": ticket_quantity,
+                    "type": ticket_name
+                }
+            });
         }
-
-        // get contact
-        const contact = await client.Contacts.getContact(found.contact_id);
-        const name = contact.first_name + ' ' + contact.last_name;
-
-        // send 200 response with json
-        res.status(200).json({
-            "success": true,
-            "message": "Code received for " + name
-        });
     }
 })
 
