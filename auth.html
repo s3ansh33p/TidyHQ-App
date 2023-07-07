@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login</title>
+    <style>
+        body {
+            font-size: 1.4rem;
+            text-rendering: optimizeLegibility;
+            margin: 0;
+            padding: 0;
+            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        main,
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        h3 {
+            margin-top: 25vh;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+
+        input {
+            margin: 1rem;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            background-color: #fff;
+            color: #000;
+            font-size: 1rem;
+            width: 100%;
+        }
+
+        input[type="submit"] {
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #ffcc00;
+        }
+
+        #status {
+            margin: 1rem;
+            color: orange;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h3>Login</h3>
+        <span id="status"></span>
+        <form action="/login" method="post">
+            <label for="username">Username</label>
+            <input type="text" name="username" id="username" required>
+            <label for="password">Password</label>
+            <input type="password" name="password" id="password" required>
+            <input type="submit" value="Login">
+        </form>
+    </main>
+    <script>
+        const form = document.querySelector('form');
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = document.querySelector('#username').value;
+            const password = document.querySelector('#password').value;
+            const data = {
+                username,
+                password
+            };
+            fetch('/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if (res.success) {
+                        window.location.href = '/';
+                    } else {
+                        document.querySelector('#status').innerHTML = res.message;
+                    }
+                })
+                .catch(err => console.error(err));
+        });
+    </script>
+</body>
+
+</html>

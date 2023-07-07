@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComSSA CheckIn</title>
+    <style>
+        body {
+            font-size: 1.4rem;
+            text-rendering: optimizeLegibility;
+            margin: 0;
+            padding: 0;
+            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        main,
+        #status,
+        .events {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+
+        #statusSubText {
+            font-size: 1rem;
+        }
+
+        button, select {
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            background-color: #fff;
+            color: #000;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        .time {
+            font-size: 1rem;
+            color: #aaa;
+        }
+        .title {
+            margin: 0.25rem 0;
+        }
+        .event {
+            padding: 0.5rem;
+            background-color: #333;
+            margin-bottom: 1rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            display: block;
+            color: #fff;
+            text-decoration: none;
+        }
+        .event:hover {
+            background-color: #444;
+        }
+        .private {
+            display: none;
+        }
+
+        #events {
+            margin: 2rem 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h3>ComSSA CheckIn</h3>
+        <div id="status">
+            <span id="statusText">Loading...</span>
+        </div>
+        <div id="events"></div>
+
+    </main>
+    <script>
+        async function fetchEvents() {
+            const response = await fetch('/events');
+            const data = await response.json();
+            data.message.reverse();
+            return data;
+        }
+
+        function formatDate(date) {
+            return new Date(date).toLocaleString();
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const events = await fetchEvents();
+            const eventsContainer = document.getElementById('events');
+            events.message.forEach(event => {
+                const eventContainer = document.createElement('a');
+                eventContainer.classList.add('event');
+                if (!event.public) {
+                    eventContainer.classList.add('private');
+                }
+                // add href
+                eventContainer.href = `/scan?event=${event.id}`;
+                eventContainer.innerHTML = `
+                    <h4 class="title">${event.name}${event.location ? ` - ${event.location}` : ''}</h4>
+                    <span class="time">${formatDate(event.start_at)} - ${formatDate(event.end_at)}</span>
+                `;
+                eventsContainer.appendChild(eventContainer);
+            });
+            document.getElementById('statusText').innerText = 'Choose an event to check in to:';
+        });
+    </script>
+
+</body>
+
+</html>

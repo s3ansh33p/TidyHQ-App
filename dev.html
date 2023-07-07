@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ComSSA CheckIn</title>
+    <style>
+        body {
+            font-size: 1.4rem;
+            text-rendering: optimizeLegibility;
+            margin: 0;
+            padding: 0;
+            font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        main,
+        #status {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        body {
+            background-color: #1a1a1a;
+            color: #fff;
+        }
+
+        #statusSubText {
+            font-size: 1rem;
+        }
+
+        .button-container {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button, select {
+            margin: 1rem;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 0.5rem;
+            background-color: #fff;
+            color: #000;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        #reader {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h3 id="title">Loading...</h3>
+        <div id="status">
+            <span id="statusText">Loading...</span>
+            <span id="statusSubText"></span>
+        </div>
+        <div class="button-container">
+            <!-- request camera permission button -->
+            <button id="requestPermission">Request Permissions / Start</button>
+            <!-- stop/start -->
+            <button id="stop">Stop</button>
+        </div>
+
+        <div style="width: 500px; height: 375px;" id="reader"></div>
+
+        <!-- selection for camera -->
+        <select id="cameraSelection"></select>
+
+    </main>
+    <script>
+
+        function setStatus(status, subtext = '', color = 'white') {
+            document.getElementById('statusText').innerText = status;
+            document.getElementById('statusSubText').innerText = subtext;
+            document.getElementById('status').style.color = color;
+            // console.log(`%c${status} ${subtext ? '(' + subtext + ')' : ''}`, `color: ${color}`);
+        }
+
+        // request camera permission
+        document.getElementById('requestPermission').addEventListener('click', (event) => {
+            setStatus('Requesting camera permission...');
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(stream => {
+                // permission granted
+                setStatus('Camera permission granted', '', 'green');
+                // create scanner and start
+                createScanner();
+            }).catch(err => {
+                // permission denied
+                setStatus('Camera permission denied', err, 'red');
+            });
+        });
+
+        // stop
+        document.getElementById('stop').addEventListener('click', (event) => {
+            stopScanner();
+        });
+
+        function stopScanner(skipStatus = false) {
+            if (window.scanner) {
+                window.scanner.stop();
+                if (!skipStatus) setStatus('Stopped', '', 'orange');
+            }
+        }
+
+        function createScanner() {
+            const html5QrCode = new Html5Qrcode('reader');
+            window.scanner = html5QrCode;
+            startScanner();
+        }
+
+        function startScanner() {
+            // check if window.cameraId is set
+            if (!window.cameraId) {
+                setStatus('No camera selected', 'Please select a camera', 'orange');
+                return;
+            } else {
+                setStatus('Starting scanner...');
+            }
+            window.scanner.start(
+                window.cameraId,
+                {
+                    fps: 2,    // sets the framerate to 2 frame per second 
+                    qrbox: 250  // sets only 250 X 250 region of viewfinder to scannable, rest shaded.
+                },
+                qrCodeMessage => {
+                    QRSuccessCallback(qrCodeMessage);
+                },
+                errorMessage => {
+                    QRErrorCallback(errorMessage);
+                })
+                .catch(err => {
+                    // Start failed, handle it. For example, 
+                    console.log(`Unable to start scanning, error: ${err}`);
+                });
+        }
+
+        function checkTicket(code) {
+            // call to backend on /check?code=code
+            event_id = window.event_id;
+            fetch(`/check?code=${code}&event=${event_id}`).then(res => {
+                if (res.status == 200) {
+                    // success
+                    res.json().then(data => {
+                        if (data.success) {
+                            setStatus('Success', data.message, 'green');
+                        } else {
+                            setStatus('Failed', data.message, 'red');
+                        }
+                    });
+                } else {
+                    // error
+                    setStatus('Error', res.statusText, 'red');
+                }
+            }).catch(err => {
+                setStatus('Error', err, 'red');
+            });
+        }
+
+        function QRSuccessCallback(qrCodeMessage) {
+            // console.log(`QR Code detected: ${qrCodeMessage}`);
+            // check for comssa ticket codes
+            if (qrCodeMessage.length != 24) {
+                setStatus("Invalid Ticket", qrCodeMessage, 'orange');
+                return;
+            } else if (!/^[0-9a-fA-F]+$/.test(qrCodeMessage)) {
+                setStatus("Invalid Ticket", qrCodeMessage, 'orange');
+                return;
+            }
+            // stop scanner
+            stopScanner(true);
+            setStatus('Checking ticket...', qrCodeMessage, 'green');
+            checkTicket(qrCodeMessage);
+        }
+        function QRErrorCallback(errorMessage) {
+            setStatus("No QR code detected.");
+        }
+
+        document.addEventListener('DOMContentLoaded', (event) => {
+
+            // check that event query param is set
+            const urlParams = new URLSearchParams(window.location.search);
+            let event_id = urlParams.get('event');
+            if (!event_id) {
+                setStatus('No event selected', 'Redirecting...', 'orange');
+                setTimeout(() => {
+                    window.location.href = '/';
+                }, 1000);
+                return;
+            }
+            window.event_id = event_id;
+            // get event name
+            fetch(`/event/${event_id}`).then(res => {
+                if (res.status == 200) {
+                    // success
+                    res.json().then(data => {
+                        if (data.success) {
+                            document.title = `${data.message.name}`;
+                            document.getElementById('title').innerText = data.message.name;
+                        } else {
+                            setStatus('Failed', data.message, 'red');
+                        }
+                    });
+                } else {
+                    // error
+                    setStatus('Error', res.statusText, 'red');
+                }
+            }).catch(err => {
+                setStatus('Error', err, 'red');
+            });
+
+            setStatus('Loading camera...');
+            Html5Qrcode.getCameras().then(cameras => {
+                /**
+                    * devices would be an array of objects of type:
+                    * { id: "id", label: "label" }
+                */
+                if (cameras && cameras.length) {
+                    window.cameraId = cameras[0].id;
+                    createScanner();
+                    // add to selection
+                    cameras.forEach(camera => {
+                        const cameraOption = document.createElement('option');
+                        cameraOption.value = camera.id;
+                        cameraOption.innerText = camera.label;
+                        document.getElementById('cameraSelection').appendChild(cameraOption);
+                    });
+                }
+            }).catch(err => {
+                // handle err   
+                setStatus('Please allow camera access', err, 'orange');
+            });
+
+        });
+    </script>
+
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"
+        integrity="sha512-r6rDA7W6ZeQhvl8S7yRVQUKVHdexq+GAlNkNNqVC7YyIV+NwqCTJe2hDWCiffTyRNOeGEzRRJ9ifvRm/HCzGYg=="
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</body>
+
+</html>
